@@ -173,6 +173,19 @@ public struct CodexAdapter: ProviderAdapter {
             )
         }
 
+        guard event.resetsAt > now() else {
+            return ProviderStatus(
+                id: id,
+                displayName: displayName,
+                percentRemaining: nil,
+                resetDescription: nil,
+                state: .unknown,
+                sourceDescription: "Latest local Codex rate limit event is expired; open Codex to refresh usage.",
+                confidence: .low,
+                lastRefresh: now()
+            )
+        }
+
         let remaining = max(0, min(100, Int((100 - event.usedPercent).rounded())))
 
         return ProviderStatus(

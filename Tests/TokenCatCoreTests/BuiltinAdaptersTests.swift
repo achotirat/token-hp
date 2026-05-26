@@ -7,6 +7,7 @@ func runBuiltinAdaptersTests() async {
     await claudeAdapterReportsUsageWithoutPercentWhenLimitIsMissing()
     await codexAdapterReportsHonestUnknownWhenDetectionIsUnavailable()
     await codexAdapterReadsLatestLocalRateLimitEvent()
+    await codexAdapterReportsUnknownWhenLatestRateLimitEventIsExpired()
 }
 
 private func claudeAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
@@ -117,6 +118,29 @@ private func codexAdapterReadsLatestLocalRateLimitEvent() async {
     expectEqual(status.confidence, .high)
     expectEqual(status.sourceDescription, "Latest local Codex session rate limit event")
     expectNil(status.errorMessage)
+}
+
+private func codexAdapterReportsUnknownWhenLatestRateLimitEventIsExpired() async {
+    let sessionsRoot = temporaryDirectory()
+    let dayDirectory = sessionsRoot.appendingPathComponent("2026/05/26", isDirectory: true)
+    try! FileManager.default.createDirectory(at: dayDirectory, withIntermediateDirectories: true)
+
+    let session = dayDirectory.appendingPathComponent("rollout-expired.jsonl")
+    try! """
+    {"timestamp":"2026-05-26T10:00:00Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"limit_id":"codex","primary":{"used_percent":66.0,"window_minutes":300,"resets_at":1779795000},"plan_type":"plus"}}}
+    """.write(to: session, atomically: true, encoding: .utf8)
+
+    let adapter = CodexAdapter(
+        sessionsRoot: sessionsRoot,
+        now: { Date(timeIntervalSince1970: 1779800000) }
+    )
+    let status = await adapter.refresh()
+
+    expectNil(status.percentRemaining)
+    expectNil(status.resetDescription)
+    expectEqual(status.state, .unknown)
+    expectEqual(status.confidence, .low)
+    expectEqual(status.sourceDescription, "Latest local Codex rate limit event is expired; open Codex to refresh usage.")
 }
 
 private func temporaryDirectory() -> URL {
