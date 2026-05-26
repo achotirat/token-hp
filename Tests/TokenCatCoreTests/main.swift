@@ -1,0 +1,2 @@
+runCatStateTests()
+print("TokenCatCoreTests passed")

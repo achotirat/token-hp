@@ -8,7 +8,8 @@ let package = Package(
     ],
     products: [
         .library(name: "TokenCatCore", targets: ["TokenCatCore"]),
-        .executable(name: "TokenCatApp", targets: ["TokenCatApp"])
+        .executable(name: "TokenCatApp", targets: ["TokenCatApp"]),
+        .executable(name: "TokenCatCoreTests", targets: ["TokenCatCoreTests"])
     ],
     targets: [
         .target(name: "TokenCatCore"),
@@ -16,9 +17,10 @@ let package = Package(
             name: "TokenCatApp",
             dependencies: ["TokenCatCore"]
         ),
-        .testTarget(
+        .executableTarget(
             name: "TokenCatCoreTests",
-            dependencies: ["TokenCatCore"]
+            dependencies: ["TokenCatCore"],
+            path: "Tests/TokenCatCoreTests"
         )
     ]
 )

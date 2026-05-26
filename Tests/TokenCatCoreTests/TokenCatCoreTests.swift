@@ -1,3 +1,0 @@
-import TokenCatCore
-
-let tokenCatCorePackageIsReady = TokenCatCoreScaffold.packageIsReady

@@ -6,7 +6,7 @@
 
 **Architecture:** Use a Swift Package with a testable `TokenCatCore` library and a native SwiftUI/AppKit executable target named `TokenCatApp`. Core owns provider models, threshold decisions, worst-provider selection, adapter protocols, and notification transition logic; the app target owns macOS menu-bar UI, settings, and notification delivery.
 
-**Tech Stack:** Swift 6, Swift Package Manager, XCTest, SwiftUI, AppKit, UserNotifications, macOS 14+.
+**Tech Stack:** Swift 6, Swift Package Manager, executable test runner, SwiftUI, AppKit, UserNotifications, macOS 14+.
 
 ---
 
@@ -56,7 +56,8 @@ let package = Package(
     ],
     products: [
         .library(name: "TokenCatCore", targets: ["TokenCatCore"]),
-        .executable(name: "TokenCatApp", targets: ["TokenCatApp"])
+        .executable(name: "TokenCatApp", targets: ["TokenCatApp"]),
+        .executable(name: "TokenCatCoreTests", targets: ["TokenCatCoreTests"])
     ],
     targets: [
         .target(name: "TokenCatCore"),
@@ -64,9 +65,10 @@ let package = Package(
             name: "TokenCatApp",
             dependencies: ["TokenCatCore"]
         ),
-        .testTarget(
+        .executableTarget(
             name: "TokenCatCoreTests",
-            dependencies: ["TokenCatCore"]
+            dependencies: ["TokenCatCore"],
+            path: "Tests/TokenCatCoreTests"
         )
     ]
 )
@@ -100,7 +102,7 @@ The menu-bar cat reflects the most urgent provider:
 ## Development
 
 ```bash
-swift test
+swift run TokenCatCoreTests
 swift run TokenCatApp
 ```
 
@@ -140,9 +142,9 @@ Expected: command succeeds and lists `TokenCatCore`, `TokenCatApp`, and `TokenCa
 
 - [ ] **Step 5: Verify scaffold builds**
 
-Run: `swift test`
+Run: `swift run TokenCatCoreTests`
 
-Expected: PASS with no tests discovered or no test failures.
+Expected: PASS when the executable runner completes without fatal errors.
 
 - [ ] **Step 6: Commit**
 
@@ -157,49 +159,58 @@ git commit -m "chore: scaffold Swift package"
 - Create: `Sources/TokenCatCore/ProviderModels.swift`
 - Create: `Sources/TokenCatCore/CatState.swift`
 - Create: `Tests/TokenCatCoreTests/CatStateTests.swift`
+- Create: `Tests/TokenCatCoreTests/TestSupport.swift`
+- Create: `Tests/TokenCatCoreTests/main.swift`
 
 - [ ] **Step 1: Write failing cat-state tests**
 
-Create `Tests/TokenCatCoreTests/CatStateTests.swift`:
+Create no-framework executable tests in `Tests/TokenCatCoreTests` using `expectEqual` helpers and a `main.swift` entry point.
+
+`Tests/TokenCatCoreTests/CatStateTests.swift`:
 
 ```swift
-import XCTest
-@testable import TokenCatCore
+import TokenCatCore
 
-final class CatStateTests: XCTestCase {
-    func testCatSitsAboveLowThreshold() {
-        let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
-        XCTAssertEqual(CatState.statusState(for: 31, providerState: .healthy, thresholds: thresholds), .sitting)
-    }
+func runCatStateTests() {
+    catSitsAboveLowThreshold()
+    catLiesDownAtLowThreshold()
+    catSleepsAtSleepThreshold()
+    blockedAlwaysSleeps()
+    unknownDoesNotSleep()
+}
 
-    func testCatLiesDownAtLowThreshold() {
-        let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
-        XCTAssertEqual(CatState.statusState(for: 30, providerState: .low, thresholds: thresholds), .lyingDown)
-        XCTAssertEqual(CatState.statusState(for: 6, providerState: .low, thresholds: thresholds), .lyingDown)
-    }
+private func catSitsAboveLowThreshold() {
+    let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
+    expectEqual(CatState.statusState(for: 31, providerState: .healthy, thresholds: thresholds), .sitting, "cat sits above low threshold")
+}
 
-    func testCatSleepsAtSleepThreshold() {
-        let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
-        XCTAssertEqual(CatState.statusState(for: 5, providerState: .exhausted, thresholds: thresholds), .sleeping)
-        XCTAssertEqual(CatState.statusState(for: 0, providerState: .exhausted, thresholds: thresholds), .sleeping)
-    }
+private func catLiesDownAtLowThreshold() {
+    let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
+    expectEqual(CatState.statusState(for: 30, providerState: .low, thresholds: thresholds), .lyingDown, "cat lies down at low threshold")
+    expectEqual(CatState.statusState(for: 6, providerState: .low, thresholds: thresholds), .lyingDown, "cat lies down between sleep and low thresholds")
+}
 
-    func testBlockedAlwaysSleeps() {
-        let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
-        XCTAssertEqual(CatState.statusState(for: 90, providerState: .blocked, thresholds: thresholds), .sleeping)
-    }
+private func catSleepsAtSleepThreshold() {
+    let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
+    expectEqual(CatState.statusState(for: 5, providerState: .exhausted, thresholds: thresholds), .sleeping, "cat sleeps at sleep threshold")
+    expectEqual(CatState.statusState(for: 0, providerState: .exhausted, thresholds: thresholds), .sleeping, "cat sleeps at zero percent")
+}
 
-    func testUnknownDoesNotSleep() {
-        let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
-        XCTAssertEqual(CatState.statusState(for: nil, providerState: .unknown, thresholds: thresholds), .sitting)
-        XCTAssertEqual(CatState.statusState(for: nil, providerState: .error, thresholds: thresholds), .sitting)
-    }
+private func blockedAlwaysSleeps() {
+    let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
+    expectEqual(CatState.statusState(for: 90, providerState: .blocked, thresholds: thresholds), .sleeping, "blocked provider sleeps regardless of percent")
+}
+
+private func unknownDoesNotSleep() {
+    let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
+    expectEqual(CatState.statusState(for: nil, providerState: .unknown, thresholds: thresholds), .sitting, "unknown provider does not sleep")
+    expectEqual(CatState.statusState(for: nil, providerState: .error, thresholds: thresholds), .sitting, "error provider does not sleep")
 }
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `swift test --filter CatStateTests`
+Run: `swift run TokenCatCoreTests`
 
 Expected: FAIL because `TokenCatCore` types do not exist.
 
@@ -317,7 +328,7 @@ public struct CatThresholds: Equatable, Sendable {
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `swift test --filter CatStateTests`
+Run: `swift run TokenCatCoreTests`
 
 Expected: PASS.
 
@@ -340,8 +351,7 @@ Create `Tests/TokenCatCoreTests/StatusReducerTests.swift`:
 
 ```swift
 import Foundation
-import XCTest
-@testable import TokenCatCore
+import TokenCatCore
 
 private let fixedDate = Date(timeIntervalSince1970: 1_800_000_000)
 
@@ -362,7 +372,7 @@ private func status(
     )
 }
 
-final class StatusReducerTests: XCTestCase {
+final class StatusReducerTests {
     func testWorstProviderChoosesSleepingStateOverLowPercentHealthyProvider() {
         let statuses = [
             status(id: .claude, percent: 90, state: .healthy),
@@ -371,8 +381,8 @@ final class StatusReducerTests: XCTestCase {
 
         let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
 
-        XCTAssertEqual(snapshot.worstProvider?.id, .codex)
-        XCTAssertEqual(snapshot.catState, .sleeping)
+        expectEqual(snapshot.worstProvider?.id, .codex)
+        expectEqual(snapshot.catState, .sleeping)
     }
 
     func testWorstProviderChoosesLowestKnownPercent() {
@@ -383,8 +393,8 @@ final class StatusReducerTests: XCTestCase {
 
         let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
 
-        XCTAssertEqual(snapshot.worstProvider?.id, .codex)
-        XCTAssertEqual(snapshot.catState, .lyingDown)
+        expectEqual(snapshot.worstProvider?.id, .codex)
+        expectEqual(snapshot.catState, .lyingDown)
     }
 
     func testUnknownDoesNotBeatKnownHealthyProvider() {
@@ -395,15 +405,15 @@ final class StatusReducerTests: XCTestCase {
 
         let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
 
-        XCTAssertEqual(snapshot.worstProvider?.id, .codex)
-        XCTAssertEqual(snapshot.catState, .sitting)
+        expectEqual(snapshot.worstProvider?.id, .codex)
+        expectEqual(snapshot.catState, .sitting)
     }
 }
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `swift test --filter StatusReducerTests`
+Run: `swift run TokenCatCoreTests`
 
 Expected: FAIL because `StatusReducer` does not exist.
 
@@ -467,13 +477,13 @@ public enum StatusReducer {
 
 - [ ] **Step 4: Run reducer tests**
 
-Run: `swift test --filter StatusReducerTests`
+Run: `swift run TokenCatCoreTests`
 
 Expected: PASS.
 
 - [ ] **Step 5: Run all core tests**
 
-Run: `swift test`
+Run: `swift run TokenCatCoreTests`
 
 Expected: PASS.
 
@@ -495,45 +505,44 @@ git commit -m "feat: reduce provider statuses to cat state"
 Create `Tests/TokenCatCoreTests/NotificationStateMachineTests.swift`:
 
 ```swift
-import XCTest
-@testable import TokenCatCore
+import TokenCatCore
 
-final class NotificationStateMachineTests: XCTestCase {
+final class NotificationStateMachineTests {
     func testFirstLowCrossingNotifiesOnce() {
         var machine = NotificationStateMachine()
 
-        XCTAssertNil(machine.record(provider: .claude, newCatState: .sitting))
-        XCTAssertEqual(machine.record(provider: .claude, newCatState: .lyingDown), .low)
-        XCTAssertNil(machine.record(provider: .claude, newCatState: .lyingDown))
+        expectNil(machine.record(provider: .claude, newCatState: .sitting))
+        expectEqual(machine.record(provider: .claude, newCatState: .lyingDown), .low)
+        expectNil(machine.record(provider: .claude, newCatState: .lyingDown))
     }
 
     func testRecoveredProviderCanNotifyLowAgain() {
         var machine = NotificationStateMachine()
 
         _ = machine.record(provider: .claude, newCatState: .lyingDown)
-        XCTAssertNil(machine.record(provider: .claude, newCatState: .sitting))
-        XCTAssertEqual(machine.record(provider: .claude, newCatState: .lyingDown), .low)
+        expectNil(machine.record(provider: .claude, newCatState: .sitting))
+        expectEqual(machine.record(provider: .claude, newCatState: .lyingDown), .low)
     }
 
     func testSleepingCrossingNotifiesExhausted() {
         var machine = NotificationStateMachine()
 
-        XCTAssertEqual(machine.record(provider: .codex, newCatState: .sleeping), .exhausted)
-        XCTAssertNil(machine.record(provider: .codex, newCatState: .sleeping))
+        expectEqual(machine.record(provider: .codex, newCatState: .sleeping), .exhausted)
+        expectNil(machine.record(provider: .codex, newCatState: .sleeping))
     }
 
     func testLowThenSleepingNotifiesBothTransitions() {
         var machine = NotificationStateMachine()
 
-        XCTAssertEqual(machine.record(provider: .codex, newCatState: .lyingDown), .low)
-        XCTAssertEqual(machine.record(provider: .codex, newCatState: .sleeping), .exhausted)
+        expectEqual(machine.record(provider: .codex, newCatState: .lyingDown), .low)
+        expectEqual(machine.record(provider: .codex, newCatState: .sleeping), .exhausted)
     }
 }
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `swift test --filter NotificationStateMachineTests`
+Run: `swift run TokenCatCoreTests`
 
 Expected: FAIL because `NotificationStateMachine` does not exist.
 
@@ -572,13 +581,13 @@ public struct NotificationStateMachine: Sendable {
 
 - [ ] **Step 4: Run notification tests**
 
-Run: `swift test --filter NotificationStateMachineTests`
+Run: `swift run TokenCatCoreTests`
 
 Expected: PASS.
 
 - [ ] **Step 5: Run all tests**
 
-Run: `swift test`
+Run: `swift run TokenCatCoreTests`
 
 Expected: PASS.
 
@@ -601,39 +610,38 @@ git commit -m "feat: add notification crossing logic"
 Create `Tests/TokenCatCoreTests/BuiltinAdaptersTests.swift`:
 
 ```swift
-import XCTest
-@testable import TokenCatCore
+import TokenCatCore
 
-final class BuiltinAdaptersTests: XCTestCase {
+final class BuiltinAdaptersTests {
     func testClaudeAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
         let adapter = ClaudeAdapter()
         let status = await adapter.refresh()
 
-        XCTAssertEqual(status.id, .claude)
-        XCTAssertEqual(status.displayName, "Claude")
-        XCTAssertNil(status.percentRemaining)
-        XCTAssertEqual(status.state, .unknown)
-        XCTAssertEqual(status.confidence, .unknown)
-        XCTAssertNil(status.errorMessage)
+        expectEqual(status.id, .claude)
+        expectEqual(status.displayName, "Claude")
+        expectNil(status.percentRemaining)
+        expectEqual(status.state, .unknown)
+        expectEqual(status.confidence, .unknown)
+        expectNil(status.errorMessage)
     }
 
     func testCodexAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
         let adapter = CodexAdapter()
         let status = await adapter.refresh()
 
-        XCTAssertEqual(status.id, .codex)
-        XCTAssertEqual(status.displayName, "Codex")
-        XCTAssertNil(status.percentRemaining)
-        XCTAssertEqual(status.state, .unknown)
-        XCTAssertEqual(status.confidence, .unknown)
-        XCTAssertNil(status.errorMessage)
+        expectEqual(status.id, .codex)
+        expectEqual(status.displayName, "Codex")
+        expectNil(status.percentRemaining)
+        expectEqual(status.state, .unknown)
+        expectEqual(status.confidence, .unknown)
+        expectNil(status.errorMessage)
     }
 }
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `swift test --filter BuiltinAdaptersTests`
+Run: `swift run TokenCatCoreTests`
 
 Expected: FAIL because adapters do not exist.
 
@@ -700,13 +708,13 @@ public struct CodexAdapter: ProviderAdapter {
 
 - [ ] **Step 5: Run adapter tests**
 
-Run: `swift test --filter BuiltinAdaptersTests`
+Run: `swift run TokenCatCoreTests`
 
 Expected: PASS.
 
 - [ ] **Step 6: Run all tests**
 
-Run: `swift test`
+Run: `swift run TokenCatCoreTests`
 
 Expected: PASS.
 
@@ -1194,7 +1202,7 @@ Expected: PASS.
 
 - [ ] **Step 5: Run tests**
 
-Run: `swift test`
+Run: `swift run TokenCatCoreTests`
 
 Expected: PASS.
 
@@ -1227,7 +1235,7 @@ Modify `README.md` provider table to show the honest first implementation:
 
 - [ ] **Step 2: Run full verification**
 
-Run: `swift test`
+Run: `swift run TokenCatCoreTests`
 
 Expected: PASS.
 

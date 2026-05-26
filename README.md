@@ -21,7 +21,8 @@ The menu-bar cat reflects the most urgent provider:
 ## Development
 
 ```bash
-swift test
+swift build
+swift run TokenCatCoreTests
 swift run TokenCatApp
 ```
 
