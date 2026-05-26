@@ -13,7 +13,7 @@ The menu-bar cat reflects the most urgent provider:
 | Provider | V1 Status | Notes |
 | --- | --- | --- |
 | Claude | Adapter scaffolded | Shows `Unknown` until local detection is implemented. |
-| Codex | Adapter scaffolded | Shows `Unknown` until local detection is implemented. |
+| Codex | Local adapter | Reads the latest `rate_limits` event from `~/.codex/sessions/**/*.jsonl`. |
 | Minimax | Deferred | Future adapter. |
 | Qwen | Deferred | Future adapter. |
 | Kimi | Deferred | Future adapter. |

@@ -16,6 +16,10 @@ fi
 rm -rf "$INSTALLED_APP"
 cp -R "$SOURCE_APP" "$INSTALL_DIR/"
 xattr -dr com.apple.quarantine "$INSTALLED_APP" 2>/dev/null || true
-open "$INSTALLED_APP"
 
-echo "Installed and opened $INSTALLED_APP"
+if open "$INSTALLED_APP"; then
+    echo "Installed and opened $INSTALLED_APP"
+else
+    echo "Installed $INSTALLED_APP"
+    echo "Open it with: open \"$INSTALLED_APP\""
+fi
