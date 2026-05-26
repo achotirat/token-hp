@@ -13,17 +13,25 @@ final class AppState {
 
     private let adapters: [any ProviderAdapter]
     private var notificationStateMachine = NotificationStateMachine()
+    private var refreshGeneration = 0
 
     init(adapters: [any ProviderAdapter] = [ClaudeAdapter(), CodexAdapter()]) {
         self.adapters = adapters
     }
 
     func refresh() async -> [(ProviderStatus, NotificationEvent)] {
+        refreshGeneration += 1
+        let generation = refreshGeneration
+
         var statuses: [ProviderStatus] = []
 
         for adapter in adapters {
             let status = await adapter.refresh()
             statuses.append(status)
+        }
+
+        guard generation == refreshGeneration else {
+            return []
         }
 
         snapshot = StatusReducer.reduce(statuses: statuses, thresholds: thresholds)
