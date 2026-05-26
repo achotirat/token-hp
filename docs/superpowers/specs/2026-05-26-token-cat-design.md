@@ -36,6 +36,7 @@ V1 excludes:
 - Minimax, Qwen, and Kimi adapters.
 - Manual/custom provider cards.
 - Reset notifications.
+- Weekly session-limit drilldown.
 - Usage history charts.
 - Advanced analytics.
 
@@ -78,6 +79,8 @@ Clicking a card expands details:
 - Last refresh time.
 - Confidence.
 - Error or warning text when applicable.
+
+In a later version, this same click/drilldown pattern should be extended to show weekly or session-limit information when a provider exposes it. V1 should keep the card expansion structure flexible enough to add this without redesigning the panel.
 
 Settings contain:
 
@@ -192,3 +195,9 @@ The repository should be structured for public contribution:
 - No secrets or local usage logs committed.
 
 The initial repository target is `https://github.com/achotirat/token-hp`.
+
+## Future Versions
+
+Future versions may add a provider-card drilldown for weekly session limits. When supported by a provider, clicking Claude or Codex should reveal the weekly/session limit, current weekly/session usage, reset timing, and source confidence.
+
+This should remain provider-adapter driven. The UI should render weekly/session-limit details only when an adapter reports them, and should avoid showing fake precision when the local data source cannot distinguish daily, session, weekly, or plan-level limits.
