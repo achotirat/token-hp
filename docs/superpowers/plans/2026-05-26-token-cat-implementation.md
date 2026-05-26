@@ -6,7 +6,7 @@
 
 **Architecture:** Use a Swift Package with a testable `TokenCatCore` library and a native SwiftUI/AppKit executable target named `TokenCatApp`. Core owns provider models, threshold decisions, worst-provider selection, adapter protocols, and notification transition logic; the app target owns macOS menu-bar UI, settings, and notification delivery.
 
-**Tech Stack:** Swift 6, Swift Package Manager, Swift Testing, SwiftUI, AppKit, UserNotifications, macOS 14+.
+**Tech Stack:** Swift 6, Swift Package Manager, XCTest, SwiftUI, AppKit, UserNotifications, macOS 14+.
 
 ---
 
@@ -163,35 +163,37 @@ git commit -m "chore: scaffold Swift package"
 Create `Tests/TokenCatCoreTests/CatStateTests.swift`:
 
 ```swift
-import Testing
+import XCTest
 @testable import TokenCatCore
 
-@Test func catSitsAboveLowThreshold() {
-    let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
-    #expect(CatState.statusState(for: 31, providerState: .healthy, thresholds: thresholds) == .sitting)
-}
+final class CatStateTests: XCTestCase {
+    func testCatSitsAboveLowThreshold() {
+        let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
+        XCTAssertEqual(CatState.statusState(for: 31, providerState: .healthy, thresholds: thresholds), .sitting)
+    }
 
-@Test func catLiesDownAtLowThreshold() {
-    let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
-    #expect(CatState.statusState(for: 30, providerState: .low, thresholds: thresholds) == .lyingDown)
-    #expect(CatState.statusState(for: 6, providerState: .low, thresholds: thresholds) == .lyingDown)
-}
+    func testCatLiesDownAtLowThreshold() {
+        let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
+        XCTAssertEqual(CatState.statusState(for: 30, providerState: .low, thresholds: thresholds), .lyingDown)
+        XCTAssertEqual(CatState.statusState(for: 6, providerState: .low, thresholds: thresholds), .lyingDown)
+    }
 
-@Test func catSleepsAtSleepThreshold() {
-    let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
-    #expect(CatState.statusState(for: 5, providerState: .exhausted, thresholds: thresholds) == .sleeping)
-    #expect(CatState.statusState(for: 0, providerState: .exhausted, thresholds: thresholds) == .sleeping)
-}
+    func testCatSleepsAtSleepThreshold() {
+        let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
+        XCTAssertEqual(CatState.statusState(for: 5, providerState: .exhausted, thresholds: thresholds), .sleeping)
+        XCTAssertEqual(CatState.statusState(for: 0, providerState: .exhausted, thresholds: thresholds), .sleeping)
+    }
 
-@Test func blockedAlwaysSleeps() {
-    let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
-    #expect(CatState.statusState(for: 90, providerState: .blocked, thresholds: thresholds) == .sleeping)
-}
+    func testBlockedAlwaysSleeps() {
+        let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
+        XCTAssertEqual(CatState.statusState(for: 90, providerState: .blocked, thresholds: thresholds), .sleeping)
+    }
 
-@Test func unknownDoesNotSleep() {
-    let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
-    #expect(CatState.statusState(for: nil, providerState: .unknown, thresholds: thresholds) == .sitting)
-    #expect(CatState.statusState(for: nil, providerState: .error, thresholds: thresholds) == .sitting)
+    func testUnknownDoesNotSleep() {
+        let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
+        XCTAssertEqual(CatState.statusState(for: nil, providerState: .unknown, thresholds: thresholds), .sitting)
+        XCTAssertEqual(CatState.statusState(for: nil, providerState: .error, thresholds: thresholds), .sitting)
+    }
 }
 ```
 
@@ -338,7 +340,7 @@ Create `Tests/TokenCatCoreTests/StatusReducerTests.swift`:
 
 ```swift
 import Foundation
-import Testing
+import XCTest
 @testable import TokenCatCore
 
 private let fixedDate = Date(timeIntervalSince1970: 1_800_000_000)
@@ -360,40 +362,42 @@ private func status(
     )
 }
 
-@Test func worstProviderChoosesSleepingStateOverLowPercentHealthyProvider() {
-    let statuses = [
-        status(id: .claude, percent: 90, state: .healthy),
-        status(id: .codex, percent: 2, state: .exhausted)
-    ]
+final class StatusReducerTests: XCTestCase {
+    func testWorstProviderChoosesSleepingStateOverLowPercentHealthyProvider() {
+        let statuses = [
+            status(id: .claude, percent: 90, state: .healthy),
+            status(id: .codex, percent: 2, state: .exhausted)
+        ]
 
-    let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
+        let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
 
-    #expect(snapshot.worstProvider?.id == .codex)
-    #expect(snapshot.catState == .sleeping)
-}
+        XCTAssertEqual(snapshot.worstProvider?.id, .codex)
+        XCTAssertEqual(snapshot.catState, .sleeping)
+    }
 
-@Test func worstProviderChoosesLowestKnownPercent() {
-    let statuses = [
-        status(id: .claude, percent: 72, state: .healthy),
-        status(id: .codex, percent: 18, state: .low)
-    ]
+    func testWorstProviderChoosesLowestKnownPercent() {
+        let statuses = [
+            status(id: .claude, percent: 72, state: .healthy),
+            status(id: .codex, percent: 18, state: .low)
+        ]
 
-    let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
+        let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
 
-    #expect(snapshot.worstProvider?.id == .codex)
-    #expect(snapshot.catState == .lyingDown)
-}
+        XCTAssertEqual(snapshot.worstProvider?.id, .codex)
+        XCTAssertEqual(snapshot.catState, .lyingDown)
+    }
 
-@Test func unknownDoesNotBeatKnownHealthyProvider() {
-    let statuses = [
-        status(id: .claude, percent: nil, state: .unknown),
-        status(id: .codex, percent: 80, state: .healthy)
-    ]
+    func testUnknownDoesNotBeatKnownHealthyProvider() {
+        let statuses = [
+            status(id: .claude, percent: nil, state: .unknown),
+            status(id: .codex, percent: 80, state: .healthy)
+        ]
 
-    let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
+        let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
 
-    #expect(snapshot.worstProvider?.id == .codex)
-    #expect(snapshot.catState == .sitting)
+        XCTAssertEqual(snapshot.worstProvider?.id, .codex)
+        XCTAssertEqual(snapshot.catState, .sitting)
+    }
 }
 ```
 
@@ -491,37 +495,39 @@ git commit -m "feat: reduce provider statuses to cat state"
 Create `Tests/TokenCatCoreTests/NotificationStateMachineTests.swift`:
 
 ```swift
-import Testing
+import XCTest
 @testable import TokenCatCore
 
-@Test func firstLowCrossingNotifiesOnce() {
-    var machine = NotificationStateMachine()
+final class NotificationStateMachineTests: XCTestCase {
+    func testFirstLowCrossingNotifiesOnce() {
+        var machine = NotificationStateMachine()
 
-    #expect(machine.record(provider: .claude, newCatState: .sitting) == nil)
-    #expect(machine.record(provider: .claude, newCatState: .lyingDown) == .low)
-    #expect(machine.record(provider: .claude, newCatState: .lyingDown) == nil)
-}
+        XCTAssertNil(machine.record(provider: .claude, newCatState: .sitting))
+        XCTAssertEqual(machine.record(provider: .claude, newCatState: .lyingDown), .low)
+        XCTAssertNil(machine.record(provider: .claude, newCatState: .lyingDown))
+    }
 
-@Test func recoveredProviderCanNotifyLowAgain() {
-    var machine = NotificationStateMachine()
+    func testRecoveredProviderCanNotifyLowAgain() {
+        var machine = NotificationStateMachine()
 
-    _ = machine.record(provider: .claude, newCatState: .lyingDown)
-    #expect(machine.record(provider: .claude, newCatState: .sitting) == nil)
-    #expect(machine.record(provider: .claude, newCatState: .lyingDown) == .low)
-}
+        _ = machine.record(provider: .claude, newCatState: .lyingDown)
+        XCTAssertNil(machine.record(provider: .claude, newCatState: .sitting))
+        XCTAssertEqual(machine.record(provider: .claude, newCatState: .lyingDown), .low)
+    }
 
-@Test func sleepingCrossingNotifiesExhausted() {
-    var machine = NotificationStateMachine()
+    func testSleepingCrossingNotifiesExhausted() {
+        var machine = NotificationStateMachine()
 
-    #expect(machine.record(provider: .codex, newCatState: .sleeping) == .exhausted)
-    #expect(machine.record(provider: .codex, newCatState: .sleeping) == nil)
-}
+        XCTAssertEqual(machine.record(provider: .codex, newCatState: .sleeping), .exhausted)
+        XCTAssertNil(machine.record(provider: .codex, newCatState: .sleeping))
+    }
 
-@Test func lowThenSleepingNotifiesBothTransitions() {
-    var machine = NotificationStateMachine()
+    func testLowThenSleepingNotifiesBothTransitions() {
+        var machine = NotificationStateMachine()
 
-    #expect(machine.record(provider: .codex, newCatState: .lyingDown) == .low)
-    #expect(machine.record(provider: .codex, newCatState: .sleeping) == .exhausted)
+        XCTAssertEqual(machine.record(provider: .codex, newCatState: .lyingDown), .low)
+        XCTAssertEqual(machine.record(provider: .codex, newCatState: .sleeping), .exhausted)
+    }
 }
 ```
 
@@ -595,31 +601,33 @@ git commit -m "feat: add notification crossing logic"
 Create `Tests/TokenCatCoreTests/BuiltinAdaptersTests.swift`:
 
 ```swift
-import Testing
+import XCTest
 @testable import TokenCatCore
 
-@Test func claudeAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
-    let adapter = ClaudeAdapter()
-    let status = await adapter.refresh()
+final class BuiltinAdaptersTests: XCTestCase {
+    func testClaudeAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
+        let adapter = ClaudeAdapter()
+        let status = await adapter.refresh()
 
-    #expect(status.id == .claude)
-    #expect(status.displayName == "Claude")
-    #expect(status.percentRemaining == nil)
-    #expect(status.state == .unknown)
-    #expect(status.confidence == .unknown)
-    #expect(status.errorMessage == nil)
-}
+        XCTAssertEqual(status.id, .claude)
+        XCTAssertEqual(status.displayName, "Claude")
+        XCTAssertNil(status.percentRemaining)
+        XCTAssertEqual(status.state, .unknown)
+        XCTAssertEqual(status.confidence, .unknown)
+        XCTAssertNil(status.errorMessage)
+    }
 
-@Test func codexAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
-    let adapter = CodexAdapter()
-    let status = await adapter.refresh()
+    func testCodexAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
+        let adapter = CodexAdapter()
+        let status = await adapter.refresh()
 
-    #expect(status.id == .codex)
-    #expect(status.displayName == "Codex")
-    #expect(status.percentRemaining == nil)
-    #expect(status.state == .unknown)
-    #expect(status.confidence == .unknown)
-    #expect(status.errorMessage == nil)
+        XCTAssertEqual(status.id, .codex)
+        XCTAssertEqual(status.displayName, "Codex")
+        XCTAssertNil(status.percentRemaining)
+        XCTAssertEqual(status.state, .unknown)
+        XCTAssertEqual(status.confidence, .unknown)
+        XCTAssertNil(status.errorMessage)
+    }
 }
 ```
 
