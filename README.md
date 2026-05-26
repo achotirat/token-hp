@@ -26,12 +26,22 @@ swift run TokenCatCoreTests
 swift run TokenCatApp
 ```
 
-`swift run TokenCatApp` is useful for compile checks, but macOS menu-bar behavior is more reliable from a bundled app. To build and open a local menu-bar app:
+`swift run TokenCatApp` is useful for compile checks, but macOS menu-bar behavior is more reliable from an installed app bundle.
+
+For a RunCat-style local install, build the app, replace any running copy, copy it to `/Applications`, and launch it:
+
+```bash
+./scripts/install-local.sh
+```
+
+For build-only packaging:
 
 ```bash
 ./scripts/build-app.sh
 open ".build/Token Cat.app"
 ```
+
+If you do not see it immediately, check the right side of the macOS menu bar for `Token Cat`, `Cat low`, or `Cat Zz`.
 
 ## Release Packaging
 
