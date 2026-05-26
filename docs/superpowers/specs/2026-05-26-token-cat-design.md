@@ -54,7 +54,15 @@ Unknown provider data should not force the cat into the sleeping state. Unknown 
 
 The app uses the Friendly Provider Cards direction.
 
-The menu-bar icon should be small, readable, and original. The sitting cat should be a graphic mascot pose: tilted slightly and staring toward the user. The low state should look like a cat lying down. The exhausted state should look like a curled or sleeping cat with `ZzZ`.
+The menu-bar icon should be small, readable, animated, and original. The cat style should feel like a simple hand-drawn line animation: black outline, minimal fill, rounded body, expressive tail, and no stock imagery.
+
+Cat animation direction:
+
+- Healthy/sitting state should animate as a small walking cat when there is plenty of quota.
+- Low/lying state should animate as the cat sitting and yawning.
+- Exhausted/sleeping state should animate as the cat lying down and sleeping, with a subtle `ZzZ` cue when there is enough room.
+
+The animation should stay subtle enough for a macOS menu bar. The app can use SwiftUI `TimelineView` or simple state-driven vector frames rather than bitmap sprites in v1.
 
 The opened panel contains:
 

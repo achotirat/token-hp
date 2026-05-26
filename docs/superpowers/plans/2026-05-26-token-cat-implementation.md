@@ -24,7 +24,7 @@
 - Create `Sources/TokenCatCore/BuiltinAdapters.swift`: initial Claude and Codex adapters that report honest `unknown` until real local detection is implemented.
 - Create `Sources/TokenCatApp/TokenCatApp.swift`: native macOS app entry point.
 - Create `Sources/TokenCatApp/AppState.swift`: observable app state, refresh loop, settings bridge.
-- Create `Sources/TokenCatApp/MenuBarIconView.swift`: original vector-style cat icon.
+- Create `Sources/TokenCatApp/MenuBarIconView.swift`: original hand-drawn animated vector-style cat icon.
 - Create `Sources/TokenCatApp/ProviderPanelView.swift`: friendly provider cards and expandable details.
 - Create `Sources/TokenCatApp/SettingsView.swift`: threshold, refresh, and notification controls.
 - Create `Sources/TokenCatApp/NotificationService.swift`: macOS notification authorization and delivery.
@@ -848,7 +848,7 @@ git commit -m "feat: add app state refresh loop"
 - Create: `Sources/TokenCatApp/MenuBarIconView.swift`
 - Create: `Sources/TokenCatApp/ProviderPanelView.swift`
 
-- [ ] **Step 1: Implement vector cat menu icon**
+- [ ] **Step 1: Implement animated vector cat menu icon**
 
 Create `Sources/TokenCatApp/MenuBarIconView.swift`:
 
@@ -858,6 +858,7 @@ import TokenCatCore
 
 struct MenuBarIconView: View {
     let state: CatState
+    @State private var isAlternateFrame = false
 
     var body: some View {
         Canvas { context, size in
@@ -865,15 +866,25 @@ struct MenuBarIconView: View {
             let stroke = Path { path in
                 switch state {
                 case .sitting:
-                    path.addEllipse(in: rect.insetBy(dx: size.width * 0.28, dy: size.height * 0.18))
-                    path.move(to: CGPoint(x: size.width * 0.34, y: size.height * 0.22))
-                    path.addLine(to: CGPoint(x: size.width * 0.24, y: size.height * 0.02))
-                    path.move(to: CGPoint(x: size.width * 0.66, y: size.height * 0.22))
-                    path.addLine(to: CGPoint(x: size.width * 0.76, y: size.height * 0.02))
+                    let legOffset = isAlternateFrame ? size.height * 0.10 : 0
+                    path.addRoundedRect(in: rect.insetBy(dx: size.width * 0.18, dy: size.height * 0.28), cornerSize: CGSize(width: 12, height: 12))
+                    path.move(to: CGPoint(x: size.width * 0.76, y: size.height * 0.34))
+                    path.addLine(to: CGPoint(x: size.width * 0.88, y: size.height * 0.20))
+                    path.move(to: CGPoint(x: size.width * 0.14, y: size.height * 0.34))
+                    path.addCurve(to: CGPoint(x: size.width * 0.10, y: size.height * 0.02), control1: CGPoint(x: size.width * 0.00, y: size.height * 0.24), control2: CGPoint(x: size.width * 0.04, y: size.height * 0.04))
+                    path.move(to: CGPoint(x: size.width * 0.36, y: size.height * 0.70))
+                    path.addLine(to: CGPoint(x: size.width * 0.30, y: size.height * 0.92 - legOffset))
+                    path.move(to: CGPoint(x: size.width * 0.58, y: size.height * 0.70))
+                    path.addLine(to: CGPoint(x: size.width * 0.64, y: size.height * 0.92 + legOffset))
                 case .lyingDown:
-                    path.addRoundedRect(in: rect.insetBy(dx: size.width * 0.10, dy: size.height * 0.34), cornerSize: CGSize(width: 10, height: 10))
-                    path.move(to: CGPoint(x: size.width * 0.18, y: size.height * 0.44))
-                    path.addLine(to: CGPoint(x: size.width * 0.08, y: size.height * 0.24))
+                    let mouthDrop = isAlternateFrame ? size.height * 0.14 : size.height * 0.05
+                    path.addEllipse(in: rect.insetBy(dx: size.width * 0.24, dy: size.height * 0.18))
+                    path.move(to: CGPoint(x: size.width * 0.35, y: size.height * 0.22))
+                    path.addLine(to: CGPoint(x: size.width * 0.26, y: size.height * 0.02))
+                    path.move(to: CGPoint(x: size.width * 0.62, y: size.height * 0.22))
+                    path.addLine(to: CGPoint(x: size.width * 0.72, y: size.height * 0.02))
+                    path.move(to: CGPoint(x: size.width * 0.58, y: size.height * 0.54))
+                    path.addCurve(to: CGPoint(x: size.width * 0.72, y: size.height * 0.54 + mouthDrop), control1: CGPoint(x: size.width * 0.64, y: size.height * 0.62), control2: CGPoint(x: size.width * 0.69, y: size.height * 0.62))
                 case .sleeping:
                     path.addEllipse(in: rect.insetBy(dx: size.width * 0.12, dy: size.height * 0.30))
                     path.move(to: CGPoint(x: size.width * 0.66, y: size.height * 0.12))
@@ -886,18 +897,24 @@ struct MenuBarIconView: View {
             context.stroke(stroke, with: .color(.primary), lineWidth: 2)
         }
         .frame(width: 28, height: 18)
-        .rotationEffect(state == .sitting ? .degrees(-8) : .zero)
+        .rotationEffect(state == .lyingDown ? .degrees(-4) : .zero)
         .accessibilityLabel(accessibilityLabel)
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(650))
+                isAlternateFrame.toggle()
+            }
+        }
     }
 
     private var accessibilityLabel: String {
         switch state {
         case .sitting:
-            return "Token Cat healthy"
+            return "Token Cat healthy, walking"
         case .lyingDown:
-            return "Token Cat low"
+            return "Token Cat low, sitting and yawning"
         case .sleeping:
-            return "Token Cat exhausted"
+            return "Token Cat exhausted, sleeping"
         }
     }
 }
