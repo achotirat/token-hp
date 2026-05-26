@@ -34,12 +34,12 @@ private func catLiesDownAtLowThreshold() {
 private func catSleepsAtSleepThreshold() {
     let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
     expectEqual(
-        CatState.statusState(for: 5, providerState: .exhausted, thresholds: thresholds),
+        CatState.statusState(for: 5, providerState: .low, thresholds: thresholds),
         .sleeping,
         "cat sleeps at sleep threshold"
     )
     expectEqual(
-        CatState.statusState(for: 0, providerState: .exhausted, thresholds: thresholds),
+        CatState.statusState(for: 0, providerState: .healthy, thresholds: thresholds),
         .sleeping,
         "cat sleeps at zero percent"
     )
