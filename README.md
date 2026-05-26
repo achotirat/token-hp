@@ -26,9 +26,16 @@ swift run TokenCatCoreTests
 swift run TokenCatApp
 ```
 
+`swift run TokenCatApp` is useful for compile checks, but macOS menu-bar behavior is more reliable from a bundled app. To build and open a local menu-bar app:
+
+```bash
+./scripts/build-app.sh
+open ".build/Token Cat.app"
+```
+
 ## Release Packaging
 
-The current implementation is a Swift Package Manager development build. A future release pass should add a bundled macOS `.app` target with menu-bar-only packaging, including `LSUIElement`, app identity, signing, and distribution notes.
+The current implementation includes a local unsigned `.app` packaging script for development. A future release pass should add signing, notarization, app icon assets, and distribution notes.
 
 ## Design
 
