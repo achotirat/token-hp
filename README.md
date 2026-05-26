@@ -12,7 +12,7 @@ The menu-bar cat reflects the most urgent provider:
 
 | Provider | V1 Status | Notes |
 | --- | --- | --- |
-| Claude | Adapter scaffolded | Shows `Unknown` until local detection is implemented. |
+| Claude | Telemetry adapter | Reads `~/.claude/token-cat/claude-telemetry.jsonl`; needs Claude Code OpenTelemetry plus a local limit config for percent remaining. |
 | Codex | Local adapter | Reads the latest `rate_limits` event from `~/.codex/sessions/**/*.jsonl`. |
 | Minimax | Deferred | Future adapter. |
 | Qwen | Deferred | Future adapter. |
@@ -42,6 +42,35 @@ open ".build/Token Cat.app"
 ```
 
 If you do not see it immediately, check the right side of the macOS menu bar for `Token Cat`, `Cat low`, or `Cat Zz`.
+
+## Claude Telemetry
+
+Start the local bridge:
+
+```bash
+./scripts/claude-telemetry-collector.py
+```
+
+In another terminal, run Claude Code with OpenTelemetry pointed at the bridge:
+
+```bash
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_LOGS_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_LOGS_PROTOCOL=http/json
+export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://127.0.0.1:4318/v1/logs
+claude
+```
+
+To let Token Cat calculate percent remaining, create:
+
+```bash
+mkdir -p ~/.claude/token-cat
+cat > ~/.claude/token-cat/claude-limits.json <<'JSON'
+{"token_budget":100000,"window_minutes":300}
+JSON
+```
+
+Without `claude-limits.json`, Token Cat shows observed Claude tokens but keeps percent remaining unknown.
 
 ## Release Packaging
 
