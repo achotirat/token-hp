@@ -12,8 +12,8 @@ The menu-bar cat reflects the most urgent provider:
 
 | Provider | V1 Status | Notes |
 | --- | --- | --- |
-| Claude | Planned | Adapter boundary exists first; local detection is added behind it. |
-| Codex | Planned | Adapter boundary exists first; local detection is added behind it. |
+| Claude | Adapter scaffolded | Shows `Unknown` until local detection is implemented. |
+| Codex | Adapter scaffolded | Shows `Unknown` until local detection is implemented. |
 | Minimax | Deferred | Future adapter. |
 | Qwen | Deferred | Future adapter. |
 | Kimi | Deferred | Future adapter. |
