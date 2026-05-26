@@ -5,12 +5,17 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Toggle("Enable notifications", isOn: $appState.notificationsEnabled)
+            Toggle("Enable notifications", isOn: notificationsEnabled)
+
+            Section("Providers") {
+                Toggle("Claude", isOn: claudeEnabled)
+                Toggle("Codex", isOn: codexEnabled)
+            }
 
             LabeledContent("Refresh interval") {
                 Stepper(
                     "\(Int(appState.refreshIntervalSeconds)) seconds",
-                    value: $appState.refreshIntervalSeconds,
+                    value: refreshIntervalSeconds,
                     in: 60...1800,
                     step: 60
                 )
@@ -36,13 +41,57 @@ struct SettingsView: View {
         .frame(width: 360)
     }
 
+    private var notificationsEnabled: Binding<Bool> {
+        Binding(
+            get: {
+                appState.notificationsEnabled
+            },
+            set: { newValue in
+                appState.setNotificationsEnabled(newValue)
+            }
+        )
+    }
+
+    private var refreshIntervalSeconds: Binding<Double> {
+        Binding(
+            get: {
+                appState.refreshIntervalSeconds
+            },
+            set: { newValue in
+                appState.setRefreshIntervalSeconds(newValue)
+            }
+        )
+    }
+
+    private var claudeEnabled: Binding<Bool> {
+        Binding(
+            get: {
+                appState.claudeEnabled
+            },
+            set: { newValue in
+                appState.setProvider(.claude, enabled: newValue)
+            }
+        )
+    }
+
+    private var codexEnabled: Binding<Bool> {
+        Binding(
+            get: {
+                appState.codexEnabled
+            },
+            set: { newValue in
+                appState.setProvider(.codex, enabled: newValue)
+            }
+        )
+    }
+
     private var lowThreshold: Binding<Int> {
         Binding(
             get: {
                 appState.thresholds.lowPercent
             },
             set: { newValue in
-                appState.thresholds.lowPercent = max(newValue, appState.thresholds.sleepPercent + 1)
+                appState.setLowThreshold(newValue)
             }
         )
     }
@@ -53,7 +102,7 @@ struct SettingsView: View {
                 appState.thresholds.sleepPercent
             },
             set: { newValue in
-                appState.thresholds.sleepPercent = min(newValue, appState.thresholds.lowPercent - 1)
+                appState.setSleepThreshold(newValue)
             }
         )
     }
