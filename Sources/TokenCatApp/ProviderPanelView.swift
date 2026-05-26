@@ -19,14 +19,19 @@ struct ProviderPanelView: View {
                     .padding(.vertical, 12)
             } else {
                 ForEach(appState.snapshot.statuses, id: \.id) { status in
-                    ProviderCardView(
-                        status: status,
-                        isExpanded: appState.expandedProvider == status.id
-                    )
-                    .contentShape(RoundedRectangle(cornerRadius: 8))
-                    .onTapGesture {
+                    let isExpanded = appState.expandedProvider == status.id
+
+                    Button {
                         appState.toggleExpandedProvider(status.id)
+                    } label: {
+                        ProviderCardView(
+                            status: status,
+                            isExpanded: isExpanded
+                        )
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+                    .accessibilityHint(isExpanded ? "Hide provider details" : "Show provider details")
                 }
             }
 
@@ -82,6 +87,13 @@ private struct ProviderCardView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+            if !isExpanded, let errorMessage = status.errorMessage {
+                Text("Error: \(errorMessage)")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(2)
+            }
+
             if isExpanded {
                 VStack(alignment: .leading, spacing: 4) {
                     detailRow("Source", status.sourceDescription)
@@ -98,6 +110,7 @@ private struct ProviderCardView: View {
         }
         .padding(10)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
     }
 
     private var percentText: String {
