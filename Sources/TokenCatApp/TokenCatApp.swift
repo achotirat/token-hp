@@ -43,6 +43,10 @@ struct TokenCatApp: App {
                 return
             }
 
+            guard !events.isEmpty else {
+                return
+            }
+
             if !hasRequestedNotificationAuthorization {
                 await notificationService.requestAuthorization()
                 hasRequestedNotificationAuthorization = true
