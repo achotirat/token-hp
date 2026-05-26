@@ -1,4 +1,5 @@
 runCatStateTests()
 runStatusReducerTests()
 runNotificationStateMachineTests()
+await runBuiltinAdaptersTests()
 print("TokenCatCoreTests passed")
