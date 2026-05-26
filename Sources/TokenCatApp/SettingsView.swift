@@ -19,20 +19,42 @@ struct SettingsView: View {
             LabeledContent("Low threshold") {
                 Stepper(
                     "\(appState.thresholds.lowPercent)%",
-                    value: $appState.thresholds.lowPercent,
-                    in: 6...95
+                    value: lowThreshold,
+                    in: (appState.thresholds.sleepPercent + 1)...95
                 )
             }
 
             LabeledContent("Sleep threshold") {
                 Stepper(
                     "\(appState.thresholds.sleepPercent)%",
-                    value: $appState.thresholds.sleepPercent,
-                    in: 0...30
+                    value: sleepThreshold,
+                    in: 0...(appState.thresholds.lowPercent - 1)
                 )
             }
         }
         .padding()
         .frame(width: 360)
+    }
+
+    private var lowThreshold: Binding<Int> {
+        Binding(
+            get: {
+                appState.thresholds.lowPercent
+            },
+            set: { newValue in
+                appState.thresholds.lowPercent = max(newValue, appState.thresholds.sleepPercent + 1)
+            }
+        )
+    }
+
+    private var sleepThreshold: Binding<Int> {
+        Binding(
+            get: {
+                appState.thresholds.sleepPercent
+            },
+            set: { newValue in
+                appState.thresholds.sleepPercent = min(newValue, appState.thresholds.lowPercent - 1)
+            }
+        )
     }
 }
