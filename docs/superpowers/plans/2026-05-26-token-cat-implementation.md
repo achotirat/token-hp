@@ -192,8 +192,8 @@ private func catLiesDownAtLowThreshold() {
 
 private func catSleepsAtSleepThreshold() {
     let thresholds = CatThresholds(lowPercent: 30, sleepPercent: 5)
-    expectEqual(CatState.statusState(for: 5, providerState: .exhausted, thresholds: thresholds), .sleeping, "cat sleeps at sleep threshold")
-    expectEqual(CatState.statusState(for: 0, providerState: .exhausted, thresholds: thresholds), .sleeping, "cat sleeps at zero percent")
+    expectEqual(CatState.statusState(for: 5, providerState: .low, thresholds: thresholds), .sleeping, "cat sleeps at sleep threshold")
+    expectEqual(CatState.statusState(for: 0, providerState: .healthy, thresholds: thresholds), .sleeping, "cat sleeps at zero percent")
 }
 
 private func blockedAlwaysSleeps() {
@@ -344,6 +344,7 @@ git commit -m "feat: add provider models and cat thresholds"
 **Files:**
 - Create: `Sources/TokenCatCore/StatusReducer.swift`
 - Create: `Tests/TokenCatCoreTests/StatusReducerTests.swift`
+- Update: `Tests/TokenCatCoreTests/main.swift`
 
 - [ ] **Step 1: Write failing reducer tests**
 
@@ -372,43 +373,55 @@ private func status(
     )
 }
 
-final class StatusReducerTests {
-    func testWorstProviderChoosesSleepingStateOverLowPercentHealthyProvider() {
-        let statuses = [
-            status(id: .claude, percent: 90, state: .healthy),
-            status(id: .codex, percent: 2, state: .exhausted)
-        ]
-
-        let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
-
-        expectEqual(snapshot.worstProvider?.id, .codex)
-        expectEqual(snapshot.catState, .sleeping)
-    }
-
-    func testWorstProviderChoosesLowestKnownPercent() {
-        let statuses = [
-            status(id: .claude, percent: 72, state: .healthy),
-            status(id: .codex, percent: 18, state: .low)
-        ]
-
-        let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
-
-        expectEqual(snapshot.worstProvider?.id, .codex)
-        expectEqual(snapshot.catState, .lyingDown)
-    }
-
-    func testUnknownDoesNotBeatKnownHealthyProvider() {
-        let statuses = [
-            status(id: .claude, percent: nil, state: .unknown),
-            status(id: .codex, percent: 80, state: .healthy)
-        ]
-
-        let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
-
-        expectEqual(snapshot.worstProvider?.id, .codex)
-        expectEqual(snapshot.catState, .sitting)
-    }
+func runStatusReducerTests() {
+    worstProviderChoosesSleepingStateOverLowPercentHealthyProvider()
+    worstProviderChoosesLowestKnownPercent()
+    unknownDoesNotBeatKnownHealthyProvider()
 }
+
+private func worstProviderChoosesSleepingStateOverLowPercentHealthyProvider() {
+    let statuses = [
+        status(id: .claude, percent: 90, state: .healthy),
+        status(id: .codex, percent: 2, state: .exhausted)
+    ]
+
+    let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
+
+    expectEqual(snapshot.worstProvider?.id, .codex)
+    expectEqual(snapshot.catState, .sleeping)
+}
+
+private func worstProviderChoosesLowestKnownPercent() {
+    let statuses = [
+        status(id: .claude, percent: 72, state: .healthy),
+        status(id: .codex, percent: 18, state: .low)
+    ]
+
+    let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
+
+    expectEqual(snapshot.worstProvider?.id, .codex)
+    expectEqual(snapshot.catState, .lyingDown)
+}
+
+private func unknownDoesNotBeatKnownHealthyProvider() {
+    let statuses = [
+        status(id: .claude, percent: nil, state: .unknown),
+        status(id: .codex, percent: 80, state: .healthy)
+    ]
+
+    let snapshot = StatusReducer.reduce(statuses: statuses, thresholds: CatThresholds())
+
+    expectEqual(snapshot.worstProvider?.id, .codex)
+    expectEqual(snapshot.catState, .sitting)
+}
+```
+
+Update `Tests/TokenCatCoreTests/main.swift`:
+
+```swift
+runCatStateTests()
+runStatusReducerTests()
+print("TokenCatCoreTests passed")
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -490,7 +503,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add Sources/TokenCatCore/StatusReducer.swift Tests/TokenCatCoreTests/StatusReducerTests.swift
+git add Sources/TokenCatCore/StatusReducer.swift Tests/TokenCatCoreTests/StatusReducerTests.swift Tests/TokenCatCoreTests/main.swift
 git commit -m "feat: reduce provider statuses to cat state"
 ```
 
@@ -499,6 +512,7 @@ git commit -m "feat: reduce provider statuses to cat state"
 **Files:**
 - Create: `Sources/TokenCatCore/NotificationStateMachine.swift`
 - Create: `Tests/TokenCatCoreTests/NotificationStateMachineTests.swift`
+- Update: `Tests/TokenCatCoreTests/main.swift`
 
 - [ ] **Step 1: Write failing notification tests**
 
@@ -507,37 +521,51 @@ Create `Tests/TokenCatCoreTests/NotificationStateMachineTests.swift`:
 ```swift
 import TokenCatCore
 
-final class NotificationStateMachineTests {
-    func testFirstLowCrossingNotifiesOnce() {
-        var machine = NotificationStateMachine()
-
-        expectNil(machine.record(provider: .claude, newCatState: .sitting))
-        expectEqual(machine.record(provider: .claude, newCatState: .lyingDown), .low)
-        expectNil(machine.record(provider: .claude, newCatState: .lyingDown))
-    }
-
-    func testRecoveredProviderCanNotifyLowAgain() {
-        var machine = NotificationStateMachine()
-
-        _ = machine.record(provider: .claude, newCatState: .lyingDown)
-        expectNil(machine.record(provider: .claude, newCatState: .sitting))
-        expectEqual(machine.record(provider: .claude, newCatState: .lyingDown), .low)
-    }
-
-    func testSleepingCrossingNotifiesExhausted() {
-        var machine = NotificationStateMachine()
-
-        expectEqual(machine.record(provider: .codex, newCatState: .sleeping), .exhausted)
-        expectNil(machine.record(provider: .codex, newCatState: .sleeping))
-    }
-
-    func testLowThenSleepingNotifiesBothTransitions() {
-        var machine = NotificationStateMachine()
-
-        expectEqual(machine.record(provider: .codex, newCatState: .lyingDown), .low)
-        expectEqual(machine.record(provider: .codex, newCatState: .sleeping), .exhausted)
-    }
+func runNotificationStateMachineTests() {
+    firstLowCrossingNotifiesOnce()
+    recoveredProviderCanNotifyLowAgain()
+    sleepingCrossingNotifiesExhausted()
+    lowThenSleepingNotifiesBothTransitions()
 }
+
+private func firstLowCrossingNotifiesOnce() {
+    var machine = NotificationStateMachine()
+
+    expectNil(machine.record(provider: .claude, newCatState: .sitting))
+    expectEqual(machine.record(provider: .claude, newCatState: .lyingDown), .low)
+    expectNil(machine.record(provider: .claude, newCatState: .lyingDown))
+}
+
+private func recoveredProviderCanNotifyLowAgain() {
+    var machine = NotificationStateMachine()
+
+    _ = machine.record(provider: .claude, newCatState: .lyingDown)
+    expectNil(machine.record(provider: .claude, newCatState: .sitting))
+    expectEqual(machine.record(provider: .claude, newCatState: .lyingDown), .low)
+}
+
+private func sleepingCrossingNotifiesExhausted() {
+    var machine = NotificationStateMachine()
+
+    expectEqual(machine.record(provider: .codex, newCatState: .sleeping), .exhausted)
+    expectNil(machine.record(provider: .codex, newCatState: .sleeping))
+}
+
+private func lowThenSleepingNotifiesBothTransitions() {
+    var machine = NotificationStateMachine()
+
+    expectEqual(machine.record(provider: .codex, newCatState: .lyingDown), .low)
+    expectEqual(machine.record(provider: .codex, newCatState: .sleeping), .exhausted)
+}
+```
+
+Update `Tests/TokenCatCoreTests/main.swift`:
+
+```swift
+runCatStateTests()
+runStatusReducerTests()
+runNotificationStateMachineTests()
+print("TokenCatCoreTests passed")
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -594,7 +622,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add Sources/TokenCatCore/NotificationStateMachine.swift Tests/TokenCatCoreTests/NotificationStateMachineTests.swift
+git add Sources/TokenCatCore/NotificationStateMachine.swift Tests/TokenCatCoreTests/NotificationStateMachineTests.swift Tests/TokenCatCoreTests/main.swift
 git commit -m "feat: add notification crossing logic"
 ```
 
@@ -604,6 +632,7 @@ git commit -m "feat: add notification crossing logic"
 - Create: `Sources/TokenCatCore/ProviderAdapter.swift`
 - Create: `Sources/TokenCatCore/BuiltinAdapters.swift`
 - Create: `Tests/TokenCatCoreTests/BuiltinAdaptersTests.swift`
+- Update: `Tests/TokenCatCoreTests/main.swift`
 
 - [ ] **Step 1: Write failing adapter tests**
 
@@ -612,31 +641,44 @@ Create `Tests/TokenCatCoreTests/BuiltinAdaptersTests.swift`:
 ```swift
 import TokenCatCore
 
-final class BuiltinAdaptersTests {
-    func testClaudeAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
-        let adapter = ClaudeAdapter()
-        let status = await adapter.refresh()
-
-        expectEqual(status.id, .claude)
-        expectEqual(status.displayName, "Claude")
-        expectNil(status.percentRemaining)
-        expectEqual(status.state, .unknown)
-        expectEqual(status.confidence, .unknown)
-        expectNil(status.errorMessage)
-    }
-
-    func testCodexAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
-        let adapter = CodexAdapter()
-        let status = await adapter.refresh()
-
-        expectEqual(status.id, .codex)
-        expectEqual(status.displayName, "Codex")
-        expectNil(status.percentRemaining)
-        expectEqual(status.state, .unknown)
-        expectEqual(status.confidence, .unknown)
-        expectNil(status.errorMessage)
-    }
+func runBuiltinAdaptersTests() async {
+    await claudeAdapterReportsHonestUnknownWhenDetectionIsUnavailable()
+    await codexAdapterReportsHonestUnknownWhenDetectionIsUnavailable()
 }
+
+private func claudeAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
+    let adapter = ClaudeAdapter()
+    let status = await adapter.refresh()
+
+    expectEqual(status.id, .claude)
+    expectEqual(status.displayName, "Claude")
+    expectNil(status.percentRemaining)
+    expectEqual(status.state, .unknown)
+    expectEqual(status.confidence, .unknown)
+    expectNil(status.errorMessage)
+}
+
+private func codexAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
+    let adapter = CodexAdapter()
+    let status = await adapter.refresh()
+
+    expectEqual(status.id, .codex)
+    expectEqual(status.displayName, "Codex")
+    expectNil(status.percentRemaining)
+    expectEqual(status.state, .unknown)
+    expectEqual(status.confidence, .unknown)
+    expectNil(status.errorMessage)
+}
+```
+
+Update `Tests/TokenCatCoreTests/main.swift`:
+
+```swift
+runCatStateTests()
+runStatusReducerTests()
+runNotificationStateMachineTests()
+await runBuiltinAdaptersTests()
+print("TokenCatCoreTests passed")
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -721,7 +763,7 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add Sources/TokenCatCore/ProviderAdapter.swift Sources/TokenCatCore/BuiltinAdapters.swift Tests/TokenCatCoreTests/BuiltinAdaptersTests.swift
+git add Sources/TokenCatCore/ProviderAdapter.swift Sources/TokenCatCore/BuiltinAdapters.swift Tests/TokenCatCoreTests/BuiltinAdaptersTests.swift Tests/TokenCatCoreTests/main.swift
 git commit -m "feat: add Claude and Codex adapters"
 ```
 
