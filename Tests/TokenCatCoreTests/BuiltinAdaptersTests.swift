@@ -8,6 +8,7 @@ func runBuiltinAdaptersTests() async {
     await codexAdapterReportsHonestUnknownWhenDetectionIsUnavailable()
     await codexAdapterReadsLatestLocalRateLimitEvent()
     await codexAdapterReportsUnknownWhenLatestRateLimitEventIsExpired()
+    await codexAdapterPrefersUsableRateLimitEventOverNewerExpiredEvent()
 }
 
 private func claudeAdapterReportsHonestUnknownWhenDetectionIsUnavailable() async {
@@ -141,6 +142,33 @@ private func codexAdapterReportsUnknownWhenLatestRateLimitEventIsExpired() async
     expectEqual(status.state, .unknown)
     expectEqual(status.confidence, .low)
     expectEqual(status.sourceDescription, "Latest local Codex rate limit event is expired; open Codex to refresh usage.")
+}
+
+private func codexAdapterPrefersUsableRateLimitEventOverNewerExpiredEvent() async {
+    let sessionsRoot = temporaryDirectory()
+    let dayDirectory = sessionsRoot.appendingPathComponent("2026/05/26", isDirectory: true)
+    try! FileManager.default.createDirectory(at: dayDirectory, withIntermediateDirectories: true)
+
+    let activeSession = dayDirectory.appendingPathComponent("rollout-active.jsonl")
+    try! """
+    {"timestamp":"2026-05-27T04:45:22Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"limit_id":"codex","primary":{"used_percent":1.0,"window_minutes":300,"resets_at":1779875098},"secondary":{"used_percent":62.0,"window_minutes":10080,"resets_at":1780191181},"plan_type":"plus"}}}
+    """.write(to: activeSession, atomically: true, encoding: .utf8)
+
+    let staleSession = dayDirectory.appendingPathComponent("rollout-stale.jsonl")
+    try! """
+    {"timestamp":"2026-05-27T04:50:00Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"limit_id":"codex","primary":{"used_percent":66.0,"window_minutes":300,"resets_at":1779795000},"plan_type":"plus"}}}
+    """.write(to: staleSession, atomically: true, encoding: .utf8)
+
+    let adapter = CodexAdapter(
+        sessionsRoot: sessionsRoot,
+        now: { Date(timeIntervalSince1970: 1779858000) }
+    )
+    let status = await adapter.refresh()
+
+    expectEqual(status.percentRemaining, 99)
+    expectEqual(status.state, .healthy)
+    expectEqual(status.confidence, .high)
+    expectEqual(status.sourceDescription, "Latest local Codex session rate limit event")
 }
 
 private func temporaryDirectory() -> URL {

@@ -160,6 +160,7 @@ public struct CodexAdapter: ProviderAdapter {
     }
 
     public func refresh() async -> ProviderStatus {
+        let refreshDate = now()
         guard let event = latestRateLimitEvent() else {
             return ProviderStatus(
                 id: id,
@@ -169,11 +170,11 @@ public struct CodexAdapter: ProviderAdapter {
                 state: .unknown,
                 sourceDescription: "No local Codex rate limit events found in ~/.codex/sessions.",
                 confidence: .unknown,
-                lastRefresh: now()
+                lastRefresh: refreshDate
             )
         }
 
-        guard event.resetsAt > now() else {
+        guard event.resetsAt > refreshDate else {
             return ProviderStatus(
                 id: id,
                 displayName: displayName,
@@ -182,7 +183,7 @@ public struct CodexAdapter: ProviderAdapter {
                 state: .unknown,
                 sourceDescription: "Latest local Codex rate limit event is expired; open Codex to refresh usage.",
                 confidence: .low,
-                lastRefresh: now()
+                lastRefresh: refreshDate
             )
         }
 
@@ -196,7 +197,7 @@ public struct CodexAdapter: ProviderAdapter {
             state: providerState(remainingPercent: remaining),
             sourceDescription: "Latest local Codex session rate limit event",
             confidence: .high,
-            lastRefresh: now()
+            lastRefresh: refreshDate
         )
     }
 
@@ -209,7 +210,9 @@ public struct CodexAdapter: ProviderAdapter {
             return nil
         }
 
-        var latestEvent: CodexRateLimitEvent?
+        var latestUsableEvent: CodexRateLimitEvent?
+        var latestExpiredEvent: CodexRateLimitEvent?
+        let refreshDate = now()
 
         for case let fileURL as URL in enumerator where fileURL.pathExtension == "jsonl" {
             guard let contents = try? String(contentsOf: fileURL, encoding: .utf8) else {
@@ -221,13 +224,17 @@ public struct CodexAdapter: ProviderAdapter {
                     continue
                 }
 
-                if latestEvent == nil || event.timestamp > latestEvent!.timestamp {
-                    latestEvent = event
+                if event.resetsAt > refreshDate {
+                    if latestUsableEvent == nil || event.timestamp > latestUsableEvent!.timestamp {
+                        latestUsableEvent = event
+                    }
+                } else if latestExpiredEvent == nil || event.timestamp > latestExpiredEvent!.timestamp {
+                    latestExpiredEvent = event
                 }
             }
         }
 
-        return latestEvent
+        return latestUsableEvent ?? latestExpiredEvent
     }
 
     private func parseRateLimitEvent(_ line: String) -> CodexRateLimitEvent? {
